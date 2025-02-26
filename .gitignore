@@ -174,4 +174,7 @@ cython_debug/
 .pypirc
 
 # Data dir
-data/*
+# data/*
+
+# ! data/example_sign.png
+# ! **/.gitkeep
