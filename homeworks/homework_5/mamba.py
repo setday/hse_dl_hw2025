@@ -2,6 +2,8 @@
     Origin: https://github.com/myscience/mamba/blob/c1d5e755c83542e0c1c1d9f1f11d1b4c80af43db/mamba/mamba.py
 '''
 
+import math
+
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -82,6 +84,8 @@ class LLMMamba(nn.Module):
             for _ in range(config.num_layers)
         ])
         
+        self.norm_f = nn.RMSNorm(self.config.d_input)
+        
         # Prediction head to map the output of the Mamba model to the vocabulary
         self.head = nn.Linear(config.d_input, config.vocab_size, bias=False)
         
@@ -110,6 +114,7 @@ class LLMMamba(nn.Module):
             out, cache = mamba(norm(seq), cache)
             seq = out + seq
             
+        seq = self.norm_f(seq)
         logits = self.head(seq)
 
         return logits, cache
@@ -242,6 +247,15 @@ class MambaBlock(nn.Module):
             nn.Linear(config.d_model, config.d_discr, bias=False), # Fixing matrix rank to d_disc
             nn.Linear(config.d_discr, config.d_model, bias=False),
         )
+
+        dt_init_std = config.d_discr**-0.5 * 1.0
+        nn.init.uniform_(self.s_D[1].weight, -dt_init_std, dt_init_std)
+        dt = torch.exp(
+            torch.rand(config.d_model) * (math.log(0.1) - math.log(0.001)) + math.log(0.001)
+        ).clamp(min=1e-4)
+        inv_dt = dt + torch.log(-torch.expm1(-dt))
+        with torch.no_grad():
+            self.s_D[1].bias.copy_(inv_dt)
         
         self.conv = nn.Conv1d(
             in_channels=config.d_model,
@@ -253,9 +267,11 @@ class MambaBlock(nn.Module):
         )
         
         # Parameters for the SSM. Follows the S4 initialization
-        self.A = nn.Parameter(torch.arange(1, config.d_state + 1, dtype=torch.float).repeat(config.d_model, 1))
+        self.A = nn.Parameter(torch.log(torch.arange(1, config.d_state + 1, dtype=torch.float).repeat(config.d_model, 1)))
+        self.A._no_weight_decay = True
         self.D = nn.Parameter(torch.ones(config.d_model, dtype=torch.float))
-        
+        self.D._no_weight_decay = True
+
         # Whether to use or not the parallel scan for the SSM
         self.parallel = config.parallel
 
@@ -321,16 +337,16 @@ class MambaBlock(nn.Module):
         '''
         
         # Compute the context-dependent projections
-        A = -self.A # shape: (d_model, d_state)
-        D = +self.D # shape: (d_model, )
+        A = -torch.exp(self.A) # shape: (d_model, d_state)
+        D = +self.D            # shape: (d_model, )
         
         B = self.s_B(seq)               # shape: (batch_size, seq_len, d_state)
         C = self.s_C(seq)               # shape: (batch_size, seq_len, d_state)
-        Δ = softplus(D + self.s_D(seq)) # shape: (batch_size, seq_len, d_model)
+        Δ = softplus(self.s_D(seq))     # shape: (batch_size, seq_len, d_model)
         
         # Discretize the A and B parameters using Δ
-        A_bar = einsum(torch.exp(A), Δ, 'd s,   b l d -> b l d s')
-        B_bar = einsum(          B,  Δ, 'b l s, b l d -> b l d s')
+        A_bar = einsum(A, Δ, 'd s,   b l d -> b l d s')
+        B_bar = einsum(B, Δ, 'b l s, b l d -> b l d s')
         
         X_bar = einsum(B_bar, seq, 'b l d s, b l d -> b l d s')
         
@@ -338,7 +354,7 @@ class MambaBlock(nn.Module):
         # NOTE: This can be done either sequentially (slow) or with
         # a parallel scan (fast)
         hid = self._hid_states(
-            A_bar,
+            torch.exp(A_bar),
             X_bar,
             parallel=self.parallel,
             prev_hid=prev_hid,    
