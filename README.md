@@ -3,6 +3,8 @@
 
 All the homeworks will be placed in specific branch `hw_i`. For each of them will be created PR for reviewing perposes.
 
+_Note: homeworks from second year are enumrated from 9 up to 13_
+
 ## Structure
 
 ```
