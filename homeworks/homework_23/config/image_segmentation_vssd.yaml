@@ -1,0 +1,50 @@
+defaults:
+  - model: vssd-segmentation
+  - writer: wandb
+  - metrics: segmentation
+  - datasets: sid-set-s
+  - dataloader: stable-small
+  - transforms: stable_512
+  - _self_
+
+num_classes: 1
+model_transforms: []
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 6e-4
+  weight_decay: 1e-1
+  betas: [0.9, 0.95]
+
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  max_lr: 6e-4
+  pct_start: 0.02
+  div_factor: 10.0
+  final_div_factor: 10.0
+  steps_per_epoch: ${trainer.epoch_len}
+  epochs: ${trainer.n_epochs}
+  anneal_strategy: cos
+
+loss_function:
+  _target_: src.loss.MixedLossWrapper
+  losses:
+    - _target_: src.loss.BCELossWrapper
+    - _target_: src.loss.DiceLossWrapper
+  weights: [2.0, 0.5]
+
+trainer:
+  log_step: 50
+  n_epochs: 60
+  epoch_len: 500
+  max_grad_norm: 1.0
+  accum_steps: 1
+  device_tensors: ["image", "target"]
+  resume_from: null
+  device: auto
+  override: True
+  monitor: "max val_IOU"
+  save_period: -1
+  early_stop: ${trainer.n_epochs}
+  save_dir: "saved/vssd-s"
+  seed: 1

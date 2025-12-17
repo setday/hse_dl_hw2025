@@ -1,0 +1,6 @@
+train: []
+inference:
+  - _target_: src.metrics.AccuracyAtOne
+    name: "Acc_Top_1"
+  - _target_: src.metrics.AccuracyAtFive
+    name: "Acc_Top_5"
