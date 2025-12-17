@@ -1,0 +1,8 @@
+train: []
+inference:
+  - _target_: src.metrics.AP50Metric
+    name: "AP_50"
+  - _target_: src.metrics.AP75Metric
+    name: "AP_75"
+  - _target_: src.metrics.IOUMetric
+    name: "IOU"

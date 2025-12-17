@@ -1,0 +1,24 @@
+train:
+  image:
+    _target_: torchvision.transforms.v2.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [512, 512]
+      # - _target_: torchvision.transforms.RandAugment
+      #   magnitude: 15
+  target:
+    _target_: torchvision.transforms.v2.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [512, 512]
+inference:
+  image:
+    _target_: torchvision.transforms.v2.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [512, 512]
+  target:
+    _target_: torchvision.transforms.v2.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [512, 512]

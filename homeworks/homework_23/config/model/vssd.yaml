@@ -1,0 +1,14 @@
+_target_: src.models.vssd.VSSD
+img_size: 512
+patch_size: 16
+embed_dim: 96
+depths: [3, 4, 21, 5]
+num_heads: [3, 6, 12, 24]
+simple_downsample: False
+simple_patch_embed: False
+ssd_expansion: 2
+ssd_chunk_size: 256
+linear_attn_duality: True
+ssd_positive_dA: True
+attn_types: ['mamba2', 'mamba2', 'mamba2', 'standard']
+drop_path_rate: 0.6

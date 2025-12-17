@@ -1,0 +1,9 @@
+train:
+  _target_: src.datasets.SidSetDataset
+  part: "train:segmentation"
+  instance_transforms: ${transforms.instance_transforms.train}
+val:
+  _target_: src.datasets.SidSetDataset
+  part: "val:segmentation"
+  instance_transforms: ${transforms.instance_transforms.inference}
+  limit: 12800
